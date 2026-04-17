@@ -18,7 +18,7 @@ ${fieldLines || "  (no fields provided)"}
 
 VERIFICATION RULES — apply exactly as specified:
 
-1. brand_name: Fuzzy match. If the text matches but differs only in capitalization or punctuation (e.g. "STONE'S THROW" vs "Stone's Throw"), return status "flag" with an explanation. Only return "fail" if the brand name is genuinely different.
+1. brand_name: Fuzzy match. If the extracted value and expected value are character-for-character identical, you MUST return "pass" — no exceptions. Only return "flag" if there is a genuine, meaningful difference such as different capitalization or different punctuation (e.g. "STONE'S THROW" vs "Stone's Throw"). Only return "fail" if the brand name is substantively different.
 
 2. class_type: Exact match required. Any difference = "fail".
 

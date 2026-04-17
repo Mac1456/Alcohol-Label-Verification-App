@@ -1,6 +1,6 @@
 # Development Log: AI-Powered Alcohol Label Verification App
 **Last Updated:** April 17, 2026
-**Status:** Phase 1 complete — app scaffolded, compiling, and running locally
+**Status:** Phase 2 complete — initial testing done, prompt fix applied, app verified working end-to-end
 
 ---
 
@@ -146,6 +146,54 @@ All three were caught by `tsc --noEmit` before running the dev server.
 
 ---
 
+## Phase 2: Initial Testing & Prompt Fix ✅
+
+### What Happened
+
+The app was tested end-to-end for the first time using a ChatGPT-generated label image of the Old Tom Distillery label alongside the sample data loaded via the pre-fill button (added earlier in this phase — see below).
+
+#### Test Setup
+- Label image: AI-generated Old Tom Distillery label (JPG)
+- Application data: loaded via "Load Sample Data" button
+- Fields tested: Brand Name, Class/Type, ABV, Net Contents, Bottler Name, Government Warning
+
+#### Results
+Core verification logic worked correctly on first run:
+- `class_type`, `abv`, `net_contents` all returned `PASS`
+- Government warning check functioned as expected
+
+#### Bug Identified: Brand Name False FLAG on Exact Match
+
+`brand_name` returned `FLAG` despite the extracted value and expected value being character-for-character identical (`"OLD TOM DISTILLERY"` vs `"OLD TOM DISTILLERY"`). Claude returned a vague explanation about "stylistic rendering differences" despite there being none.
+
+**Root cause:** The verification prompt rule for `brand_name` only specified what should produce a `FLAG` or `FAIL` — it never explicitly stated that an exact match must always return `PASS`. This left Claude room to hedge on identical values.
+
+**Fix applied (`src/lib/prompt.ts`):** Rule 1 was updated to include an explicit constraint:
+
+> _"If the extracted value and expected value are character-for-character identical, you MUST return 'pass' — no exceptions."_
+
+FLAG is now constrained to genuine, meaningful differences only (e.g. different capitalization or punctuation). This is a prompt engineering fix — no structural changes were required.
+
+#### Other Changes Made in This Phase
+
+**"Load Sample Data" button (`src/components/SingleVerify.tsx`)**
+- A small text-link button was added inline with the "Application Data" section header
+- When clicked, pre-fills all form fields with Old Tom Distillery test values and leaves country of origin blank
+- Styled as an unobtrusive text link — not the same visual weight as the primary Verify button
+- Purpose: testing utility only; the values have no special status and do not affect verification logic
+
+**Batch mode architecture confirmed**
+- CSV upload (Option A) was finalized as the batch input method: each CSV row maps a filename to its expected field values
+- Government warning is never in the CSV — always checked against the hardcoded TTB ABLA text server-side
+- Country of origin is optional; blank values are treated as not-provided and the check is skipped
+
+**Single label mode prototype assumption acknowledged**
+- Manual form entry for expected field values is a deliberate prototype simplification
+- In a production system, field values would be pre-populated from a TTB application database — agents would not type them manually
+- This is documented as an assumption, not an oversight
+
+---
+
 ## Approach
 
 ### Philosophy
@@ -223,6 +271,7 @@ Batch labels are processed via `Promise.all()` — parallel Claude API calls fir
 |---|---|
 | April 17, 2026 | Initial document created. Phase 0 (discovery and planning) complete. PRD drafted. Tech stack selected. |
 | April 17, 2026 | Phase 1 complete. Full application scaffolded and implemented: API routes, all UI components, Claude integration with prompt caching, batch CSV processing, TypeScript errors resolved. Dev server running. Code pushed to GitHub. |
+| April 17, 2026 | Phase 2 complete. First end-to-end test run with AI-generated label image. Core verification (Class/Type, ABV, Net Contents) passed correctly. Brand Name false FLAG bug identified and fixed via prompt update — exact matches now explicitly required to return PASS. "Load Sample Data" button added to single label form. Batch CSV architecture and single-label prototype assumption documented. |
 
 ---
 

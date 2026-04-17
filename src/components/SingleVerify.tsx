@@ -93,9 +93,25 @@ export default function SingleVerify() {
         </div>
 
         <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
-            Application Data
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+              Application Data
+            </h2>
+            <button
+              type="button"
+              onClick={() => setFields({
+                brand_name: "OLD TOM DISTILLERY",
+                class_type: "Kentucky Straight Bourbon Whiskey",
+                abv: "45% Alc./Vol. (90 Proof)",
+                net_contents: "750 mL",
+                bottler_name: "Old Tom Distillery Co. — Bardstown, KY",
+                country_of_origin: "",
+              })}
+              className="text-xs text-[#1a4480] hover:text-[#163a6e] hover:underline"
+            >
+              Load sample data
+            </button>
+          </div>
           <FieldForm fields={fields} onChange={setFields} />
         </div>
 
