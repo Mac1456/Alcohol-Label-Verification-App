@@ -23,7 +23,7 @@ export async function verifyLabel(
   const start = Date.now();
 
   const response = await client.beta.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1500,
     system: [SYSTEM_PROMPT],
     messages: [
