@@ -1,4 +1,3 @@
-import { TTB_GOVERNMENT_WARNING } from "@/constants/ttb";
 import type { LabelFields } from "./types";
 
 export function buildVerificationPrompt(fields: LabelFields): string {
@@ -33,18 +32,7 @@ VERIFICATION RULES — apply exactly as specified:
 
 6. country_of_origin: ${hasCountryOfOrigin ? 'Exact match required. Any difference = "fail".' : "Not provided in application — skip this check entirely. Do not include it in the output."}
 
-7. government_warning: STRICT EXACT MATCH. This check has two independent components — BOTH must pass. Failing either one is an immediate "fail" with no exceptions and no possibility of "flag".
-
-   COMPONENT 1 — Header capitalization: The warning header must appear as exactly "GOVERNMENT WARNING:" in ALL CAPS. "Government Warning:", "Government warning:", or any other capitalization is a hard fail on its own, even if the body text is correct.
-
-   COMPONENT 2 — Body text: The full warning must be word-for-word:
-   "${TTB_GOVERNMENT_WARNING}"
-   Any deviation — missing words, reordered text, truncation, paraphrasing — is a hard fail.
-
-   Additional rules:
-   - If the warning is missing entirely = "fail"
-   - This field is NEVER "flag" — only "pass" or "fail"
-   - Do not give partial credit. A warning that has the correct body but wrong header capitalization = "fail". A warning that has the correct header but incorrect body = "fail".
+7. government_warning: Extract the government warning text exactly as it appears on the label — verbatim, preserving the exact capitalisation and every word as printed. Include the header and the full body text. Do not evaluate, compare, or judge the text — just transcribe what you see. If no government warning is visible, set extracted_value to an empty string. Set status to "pass" as a placeholder — the actual pass/fail determination is made separately in code.
 
 IMAGE QUALITY: If a field cannot be read clearly due to blur, glare, or angle, set status to "flag" and mention image quality in the explanation. Only apply this if genuinely unreadable — do not use image quality as an excuse for other mismatches.
 

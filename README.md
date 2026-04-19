@@ -166,7 +166,7 @@ Each field has its own matching rule. The rules are enforced by the prompt Claud
 
 ## Approach & Assumptions
 
-See [`PRD_alcohol_label_verification.md`](PRD_alcohol_label_verification.md) and [`DEVELOPMENT_LOG.md`](DEVELOPMENT_LOG.md) for full context. Key architectural decisions:
+See [`docs/PRD_alcohol_label_verification.md`](docs/PRD_alcohol_label_verification.md) and [`DEVELOPMENT_LOG.md`](DEVELOPMENT_LOG.md) for full context. Key architectural decisions:
 
 - Claude vision handles OCR, field extraction, and judgment in a single API call — no separate OCR pipeline
 - Prompt caching is applied to the system message to reduce latency and cost on batch requests

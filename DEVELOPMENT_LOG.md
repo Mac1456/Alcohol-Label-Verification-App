@@ -369,36 +369,69 @@ Batch labels are processed via `Promise.all()` — parallel Claude API calls fir
 
 ### Model Selection: Haiku vs Sonnet
 
-After Phase 2 testing confirmed the app was functionally correct on Sonnet, the model was switched to `claude-haiku-4-5-20251001` to evaluate whether it could meet the 5-second hard requirement more consistently. 8 back-to-back verification calls were made against the Old Tom Distillery test label using the full production prompt.
+After Phase 2 testing confirmed the app was functionally correct on Sonnet, the model was switched to `claude-haiku-4-5-20251001` to evaluate whether it could meet the 5-second hard requirement more consistently.
 
-#### Response Time Results (8 runs, single label, Haiku)
+#### Initial benchmark (8 runs)
 
-| Run | Time (s) | Overall Status |
-|-----|----------|----------------|
-| 1 | 3.23 | pass |
-| 2 | 2.79 | pass |
-| 3 | 2.76 | pass |
-| 4 | 2.97 | pass |
-| 5 | 5.70 | pass |
-| 6 | 3.43 | pass |
-| 7 | 2.75 | pass |
-| 8 | 2.79 | pass |
+An initial 8-run benchmark was run during Phase 2 to validate the model switch. Results were promising but the sample size was too small for statistical confidence, and one outlier (5.70s) skewed the picture.
 
 | Metric | Value |
 |--------|-------|
 | Min | 2.75s |
 | Max | 5.70s |
-| Avg | 3.30s |
-| Median | 2.88s |
+| Mean | 3.30s |
 | Under 5s | 7/8 (87.5%) |
 
-#### Accuracy
+#### Full benchmark (30 runs, 95% CI)
 
-All 8 runs returned correct results across every field. No false flags, no false fails. Government warning exact match passed correctly on all runs. Brand name (post-prompt fix) passed correctly on all runs. The one run exceeding 5s (5.70s, run 5) was an isolated network/API latency spike — the other 7 runs clustered tightly between 2.75–3.43s.
+A full 30-run benchmark was subsequently run using the reusable benchmark script (`scripts/benchmark.js`) to produce a statistically valid confidence interval. All calls were sequential, single-label verifications against the Old Tom Distillery test label using the full production prompt.
+
+| Run | Time (s) | | Run | Time (s) | | Run | Time (s) |
+|-----|----------|-|-----|----------|-|-----|----------|
+| 1 | 2.921 | | 11 | 2.926 | | 21 | 3.280 |
+| 2 | 3.124 | | 12 | 3.169 | | 22 | 3.279 |
+| 3 | 3.933 | | 13 | 3.075 | | 23 | 2.870 |
+| 4 | 2.813 | | 14 | 2.970 | | 24 | 3.235 |
+| 5 | 4.105 | | 15 | 2.987 | | 25 | 2.738 |
+| 6 | 2.844 | | 16 | 3.154 | | 26 | 2.779 |
+| 7 | 3.686 | | 17 | 2.934 | | 27 | 3.019 |
+| 8 | 3.190 | | 18 | 3.479 | | 28 | 2.902 |
+| 9 | 3.374 | | 19 | 3.074 | | 29 | 2.838 |
+| 10 | 3.318 | | 20 | 3.414 | | 30 | 3.739 |
+
+| Metric | Value |
+|--------|-------|
+| Min | 2.738s |
+| Max | 4.105s |
+| Range | 1.367s |
+| Mean | 3.172s |
+| Std Dev | 0.344s |
+| Median (p50) | 3.099s |
+| p75 | 3.308s |
+| p90 | 3.691s |
+| p95 | 3.846s |
+| **95% CI** | **3.044s – 3.301s** |
+| Under 5s | 30/30 (100%) |
+| Accuracy | 30/30 pass |
+
+**95% Confidence Interval interpretation:** Using a t-distribution with 29 degrees of freedom, we are 95% confident the true mean response time falls between **3.04s and 3.30s** — well within the 5-second hard requirement with substantial headroom. The 5.70s outlier from the initial 8-run test did not recur across 30 sequential runs; it is consistent with a transient API latency spike rather than a characteristic of the model.
 
 #### Decision
 
-Haiku adopted as the production model for this prototype. The range across 8 runs was 2.75s–5.70s with an average of 3.30s — consistently under the 5-second hard requirement, with one outlier attributable to transient API latency rather than a model characteristic. No accuracy regression observed on any field. Note: these times reflect single-label calls under light load; response times may increase under heavier load or when batch mode fires many concurrent Claude calls simultaneously.
+Haiku adopted as the production model for this prototype. The distribution is tight (std dev 0.344s), the p95 is 3.85s, and the 5-second requirement was met on 100% of runs. Note: these times reflect single-label sequential calls under light load; response times may increase under heavier load or when batch mode fires many concurrent Claude calls simultaneously.
+
+#### Benchmark script
+
+A reusable benchmark script is available at `scripts/benchmark.js`. Run with:
+
+```bash
+node scripts/benchmark.js                        # 30 runs, default image and fields
+node scripts/benchmark.js --runs 50              # custom run count
+node scripts/benchmark.js --concurrency 5        # parallel batches of 5
+node scripts/benchmark.js --image "test-labels/OLD TOM DISTILLERY test label_2.png"
+```
+
+The script outputs per-run timings, full distribution statistics, 95% CI, percentiles (p50/p75/p90/p95), and per-field accuracy for every run.
 
 ---
 
@@ -421,6 +454,8 @@ Haiku adopted as the production model for this prototype. The range across 8 run
 | April 17, 2026 | Phase 2 complete. First end-to-end test run with AI-generated label image. Core verification (Class/Type, ABV, Net Contents) passed correctly. Brand Name false FLAG bug identified and fixed via prompt update — exact matches now explicitly required to return PASS. "Load Sample Data" button added to single label form. Batch CSV architecture and single-label prototype assumption documented. |
 | April 18, 2026 | Model switched from `claude-sonnet-4-6` to `claude-haiku-4-5-20251001`. 8-run benchmark: avg 3.30s, 7/8 runs under 5s, perfect accuracy on all fields. Prompt updated to normalize line breaks on `class_type` and `bottler_name` before comparison; government warning strict match unchanged. |
 | April 18, 2026 | Phase 3 complete. 7 structured test cases run. Two prompt bugs found and fixed: (1) government warning capitalisation check restructured into two independent hard-fail components — title-case header now correctly fails; (2) brand name casing mismatch rule restructured into three explicit tiers — same-content capitalisation differences now correctly return FLAG. All 7 test cases passing. |
+| April 18, 2026 | 30-run benchmark completed using reusable script (scripts/benchmark.js). 95% CI: 3.04s–3.30s. 30/30 runs under 5s. 30/30 pass accuracy. Full distribution statistics and per-run data documented. |
+| April 19, 2026 | Government warning hallucination bug identified and fixed. Claude was hallucinating word-level differences in the warning body text ("Surgeon General" vs "the Surgeon General") causing false fails on correct labels. Fix: rule 7 in prompt.ts simplified to extraction-only; comparison moved to code in claude.ts using normalised exact match against hardcoded TTB constant. overall_status now recomputed in code. Validated with 20-run parallel benchmark against Riverstone Reserve label — 20/20 pass including government_warning on every run. 95% CI: 4.04s–4.54s at concurrency 5. |
 
 ---
 

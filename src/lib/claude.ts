@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaTextBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
+import { TTB_GOVERNMENT_WARNING } from "@/constants/ttb";
 import { buildVerificationPrompt } from "./prompt";
 import type { LabelFields, VerificationResult } from "./types";
 
@@ -65,6 +66,40 @@ export async function verifyLabel(
       `Unexpected response format from Claude. Raw output: ${raw.slice(0, 300)}`
     );
   }
+
+  // Government warning: code-level exact match against hardcoded TTB text.
+  // Claude extracts verbatim; we determine pass/fail deterministically.
+  const normalise = (s: string) => s.replace(/\s+/g, " ").trim();
+  const gwField = parsed.fields?.find((f) => f.field === "government_warning");
+  if (gwField) {
+    const extracted = normalise(gwField.extracted_value ?? "");
+    const expected = normalise(TTB_GOVERNMENT_WARNING);
+    gwField.expected_value = TTB_GOVERNMENT_WARNING;
+    if (!extracted) {
+      gwField.status = "fail";
+      gwField.explanation = "Government warning statement is missing from the label.";
+    } else if (extracted === expected) {
+      gwField.status = "pass";
+      gwField.explanation = "";
+    } else {
+      gwField.status = "fail";
+      const extractedLower = extracted.toLowerCase();
+      const expectedLower = expected.toLowerCase();
+      if (extractedLower === expectedLower) {
+        gwField.explanation =
+          "Government warning header capitalisation is incorrect. Required: 'GOVERNMENT WARNING:' in ALL CAPS.";
+      } else {
+        gwField.explanation =
+          "Government warning text does not match the required TTB standard text word-for-word.";
+      }
+    }
+  }
+
+  // Recompute overall_status now that government_warning status is authoritative.
+  const statuses = parsed.fields?.map((f) => f.status) ?? [];
+  if (statuses.includes("fail")) parsed.overall_status = "fail";
+  else if (statuses.includes("flag")) parsed.overall_status = "flag";
+  else parsed.overall_status = "pass";
 
   parsed.processing_time_ms = Date.now() - start;
   return parsed;
