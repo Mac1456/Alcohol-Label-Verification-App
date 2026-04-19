@@ -67,6 +67,13 @@ export async function verifyLabel(
     );
   }
 
+  // Unreadable images: return as-is without field processing.
+  if (parsed.image_quality === "unreadable") {
+    parsed.overall_status = "error";
+    parsed.processing_time_ms = Date.now() - start;
+    return parsed;
+  }
+
   // Government warning: code-level exact match against hardcoded TTB text.
   // Claude extracts verbatim; we determine pass/fail deterministically.
   const normalise = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -76,8 +83,14 @@ export async function verifyLabel(
     const expected = normalise(TTB_GOVERNMENT_WARNING);
     gwField.expected_value = TTB_GOVERNMENT_WARNING;
     if (!extracted) {
-      gwField.status = "fail";
-      gwField.explanation = "Government warning statement is missing from the label.";
+      // If Claude flagged this as a quality issue, preserve its explanation.
+      // Otherwise treat as missing.
+      const isQualityIssue = parsed.image_quality === "poor" &&
+        gwField.explanation?.toLowerCase().includes("image");
+      gwField.status = isQualityIssue ? "flag" : "fail";
+      if (!isQualityIssue) {
+        gwField.explanation = "Government warning statement is missing from the label.";
+      }
     } else if (extracted === expected) {
       gwField.status = "pass";
       gwField.explanation = "";

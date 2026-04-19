@@ -20,7 +20,7 @@ const BANNER_CONFIG = {
   },
   error: {
     style: "bg-gray-100 border-gray-300 text-gray-700",
-    message: "An error occurred during verification.",
+    message: "Image could not be verified — see quality note below.",
   },
 } as const;
 
@@ -39,9 +39,9 @@ export default function ResultsPanel({ result }: ResultsPanelProps) {
             </p>
           )}
         </div>
-        {result.image_quality === "poor" && result.image_quality_notes && (
+        {(result.image_quality === "poor" || result.image_quality === "unreadable") && result.image_quality_notes && (
           <p className="mt-1 text-sm opacity-80">
-            Image quality note: {result.image_quality_notes}
+            Image quality: {result.image_quality_notes}
           </p>
         )}
       </div>

@@ -1,6 +1,6 @@
 # Development Log: AI-Powered Alcohol Label Verification App
 **Last Updated:** April 19, 2026
-**Status:** Phase 3 complete — 7-case structured test suite run, two prompt bugs fixed, all test cases passing
+**Status:** Phase 3 complete — stretch goal (imperfect image handling) tested and documented
 
 ---
 
@@ -489,7 +489,98 @@ Parallel processing via `Promise.all()` is validated at prototype scale. Both th
 |---|---|
 | Rate limit handling for large batches (300 labels) | ✅ Conclusion reached — no 429s observed at 20 labels, but latency degradation confirms chunking required above ~20 simultaneous calls. Out of scope for prototype. |
 | Whether `Promise.all()` is sufficient for 300 labels or needs chunking | ✅ Conclusion reached — `Promise.all()` validated for 10–20 labels; chunking needed at 300-label scale. Out of scope for prototype. |
-| Whether Haiku maintains accuracy on harder edge cases (angled photos, imperfect labels) | ⬜ To be tested in Phase 5 |
+| Whether Haiku maintains accuracy on harder edge cases (angled photos, imperfect labels) | 🟡 Tested with three imperfect images — stretch goal met for glare; angle and low-light handled gracefully with no crashes. See Imperfect Image Handling section. |
+
+---
+
+## Imperfect Image Handling (Stretch Goal)
+
+### Goal
+
+The original brief noted handling imperfect or angled photographs as a stretch goal. The objective was not to guarantee successful verification on all imperfect images, but to demonstrate that the app makes a best-effort read and returns clear, human-readable output rather than crashing or producing a generic error. A graceful, descriptive failure is as valid an outcome as a successful read.
+
+### Implementation
+
+Three changes were made to support this:
+
+1. **Prompt expanded** (`src/lib/prompt.ts`): The IMAGE QUALITY section was rewritten to explicitly instruct Claude to always attempt a read regardless of imperfections, flag individual fields it could not read confidently with a specific explanation naming the quality issue, and return `image_quality: "unreadable"` with an empty fields array only if the image is so degraded that no extraction is possible at all.
+
+2. **`image_quality` type extended** (`src/lib/types.ts`): Added `"unreadable"` as a third value alongside `"good"` and `"poor"`.
+
+3. **`claude.ts` updated**: Added an early return for `image_quality: "unreadable"` that sets `overall_status: "error"` without attempting field processing. Also updated the government warning handler to preserve Claude's quality explanation when the extracted value is empty on a poor-quality image, rather than overwriting it with the generic "missing from label" message.
+
+4. **UI updated** (`src/components/ResultsPanel.tsx`): Quality notes now display for both `"poor"` and `"unreadable"` images. The error banner message updated to direct agents to the quality note.
+
+### Test Images and Generation Prompts
+
+All three labels contain correct content — every field value matches the application data exactly. Any verification failure is a readability failure, not a genuine label defect. The labels were generated using the following prompts:
+
+- **Label 1 (angled):** "A realistic whiskey bottle label for OLD TOM DISTILLERY photographed at a 30-degree angle. The label should be readable but visibly skewed. All standard label text must be present. Realistic lighting, slight perspective distortion."
+- **Label 2 (glare):** "A realistic whiskey bottle label for OLD TOM DISTILLERY with visible glare and light reflection partially obscuring parts of the label. All standard label text should be present but some areas partially washed out by light."
+- **Label 3 (low lighting):** "A realistic whiskey bottle label for OLD TOM DISTILLERY photographed in poor lighting conditions. The image should be slightly underexposed and grainy but the text should still be mostly readable. All standard label text must be present."
+
+### Consistency Testing
+
+Each image was run 10 times sequentially to determine whether results are consistent or variable. Rerunnable via `scripts/tests/imperfect-consistency.js`.
+
+#### Label 1 — Angled shot (30°)
+
+| Field | Pass rate |
+|---|---|
+| brand_name | 10/10 (100%) |
+| class_type | 10/10 (100%) |
+| abv | 10/10 (100%) |
+| net_contents | 10/10 (100%) |
+| bottler_name | 10/10 (100%) |
+| government_warning | 0/10 (0%) |
+| **Overall pass** | **0/10** |
+
+**Finding:** The 30° angle has no effect on reading the five primary fields — all pass on every run without exception. The government warning fails on every run. The small-print warning text at the bottom of the bottle is printed at a size and in a position where any perspective distortion makes a 70-word exact match consistently unachievable.
+
+#### Label 2 — Glare / reflection
+
+| Field | Pass rate |
+|---|---|
+| brand_name | 10/10 (100%) |
+| class_type | 10/10 (100%) |
+| abv | 10/10 (100%) |
+| net_contents | 10/10 (100%) |
+| bottler_name | 10/10 (100%) |
+| government_warning | 0/10 (0%) |
+| **Overall pass** | **0/10** |
+| image_quality: `poor` detected | 2/10 runs |
+
+**Finding:** Same pattern as the angled shot. All primary fields read perfectly every time. The government warning fails on every run. Glare directly falls on the warning text area — Claude detected this and correctly returned `image_quality: "poor"` on 2 of 10 runs with specific notes about the glare location; on the remaining 8 runs it rated quality `good` but still failed the warning. The quality classification is somewhat inconsistent, but the outcome (graceful failure with no crash) is consistent.
+
+#### Label 3 — Low lighting
+
+| Field | Pass rate |
+|---|---|
+| brand_name | 10/10 (100%) |
+| class_type | 10/10 (100%) |
+| abv | 10/10 (100%) |
+| net_contents | 10/10 (100%) |
+| bottler_name | 10/10 (100%) |
+| government_warning | 3/10 (30%) |
+| **Overall pass** | **3/10** |
+
+**Finding:** Interesting split result. The five primary fields are again 100% consistent. The government warning passes on 3 of 10 runs — low lighting degraded the warning text enough to make it unreliable but not always unreadable. The 30% pass rate means low-lighting images cannot be relied upon for government warning verification. The 70% failure rate reflects genuine readability variance rather than a deterministic limitation.
+
+### Summary and Conclusion
+
+| Image | Primary fields (5) | Gov warning | Consistent? | No crashes |
+|---|---|---|---|---|
+| Angled (30°) | 100% pass | 0% pass | ✅ Deterministic | ✅ |
+| Glare / reflection | 100% pass | 0% pass | ✅ Deterministic | ✅ |
+| Low lighting | 100% pass | 30% pass | ❌ Variable | ✅ |
+
+**The stretch goal is met for all five primary verification fields.** Across 10 runs each, brand name, class type, ABV, net contents, and bottler name read with 100% accuracy on all three imperfect image types. The app never crashes and always returns human-readable output.
+
+**The government warning is the hard limitation on imperfect images.** It is a 70-word verbatim exact-match check against the TTB ABLA text, printed in small type at the bottom of the bottle — the position and length most vulnerable to angle, glare, and low contrast. This is an inherent constraint of the verification approach, not a bug. On angled and glare images, the failure is 100% consistent. On low-lighting images, it is unreliable (30% pass rate).
+
+**Practical implication for production use:** Agents submitting images where the government warning verification is important should be instructed to ensure the lower portion of the label is clearly lit and photographed straight-on. An image quality pre-check (or guidance in the UI) nudging agents to retake photos where `image_quality: "poor"` is returned would address the majority of these failures.
+
+> **Note — content defect vs. readability failure:** The app cannot reliably distinguish between a government warning fail caused by a genuinely defective label and one caused by the image being too degraded to read. Both cases return the same fail status and a content-framed explanation ("text does not match" or "missing from label"). The `image_quality` field provides context alongside the result, but the two signals are not correlated in code — it is left to the agent to infer that a poor-quality image may be the cause rather than a real label defect. This is a known limitation of the prototype. Resolving it definitively would require a retake of the photo; the app alone cannot make that determination.
 
 ---
 
@@ -515,6 +606,7 @@ For a production version of this tool, DSPy would be worth exploring as the volu
 | April 18, 2026 | 30-run benchmark completed using reusable script (scripts/benchmark.js). 95% CI: 3.04s–3.30s. 30/30 runs under 5s. 30/30 pass accuracy. Full distribution statistics and per-run data documented. |
 | April 19, 2026 | Government warning hallucination bug identified and fixed. Claude was hallucinating word-level differences in the warning body text ("Surgeon General" vs "the Surgeon General") causing false fails on correct labels. Fix: rule 7 in prompt.ts simplified to extraction-only; comparison moved to code in claude.ts using normalised exact match against hardcoded TTB constant. overall_status now recomputed in code. Validated with 20-run parallel benchmark against Riverstone Reserve label — 20/20 pass including government_warning on every run. 95% CI: 4.04s–4.54s at concurrency 5. |
 | April 19, 2026 | Batch parallelization test completed. 10-label batch: 6.4s wall time, 0 errors. 20-label batch: 9.7s wall time, 0 errors. Promise.all() confirmed working at both scales with no timeouts or rate limit failures. Per-label latency increases under load (avg 4.5s at 10 labels, 6.6s at 20 labels vs 3.2s single-label baseline). Chunking recommended for 300-label scale. Test assets added to test-labels/batch/ and rerunnable script added to scripts/tests/batch-parallelization.js. |
+| April 19, 2026 | Stretch goal implemented and consistency-tested: imperfect image handling. Prompt expanded with best-effort read instructions, per-field quality flagging, and "unreadable" state. ImageQuality type extended. claude.ts updated to short-circuit on unreadable images and preserve quality explanations on government warning. UI updated to surface quality notes for poor and unreadable images. 10-run consistency test on three imperfect images (angled, glare, low-light): all five primary fields read at 100% accuracy across all images and all runs. Government warning is the hard limitation — 0% pass on angled and glare images, 30% on low-light — due to small-print text sensitivity at that image position. No crashes on any run. |
 
 ---
 

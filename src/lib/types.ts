@@ -1,6 +1,6 @@
 export type FieldStatus = "pass" | "flag" | "fail";
 export type OverallStatus = "pass" | "flag" | "fail" | "error";
-export type ImageQuality = "good" | "poor";
+export type ImageQuality = "good" | "poor" | "unreadable";
 
 export interface FieldResult {
   field: string;

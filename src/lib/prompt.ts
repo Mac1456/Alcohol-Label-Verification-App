@@ -34,7 +34,18 @@ VERIFICATION RULES — apply exactly as specified:
 
 7. government_warning: Extract the government warning text exactly as it appears on the label — verbatim, preserving the exact capitalisation and every word as printed. Include the header and the full body text. Do not evaluate, compare, or judge the text — just transcribe what you see. If no government warning is visible, set extracted_value to an empty string. Set status to "pass" as a placeholder — the actual pass/fail determination is made separately in code.
 
-IMAGE QUALITY: If a field cannot be read clearly due to blur, glare, or angle, set status to "flag" and mention image quality in the explanation. Only apply this if genuinely unreadable — do not use image quality as an excuse for other mismatches.
+IMAGE QUALITY HANDLING:
+
+Always make your best effort to read the label regardless of image imperfections (glare, angle, low lighting, blur). Do not refuse to process an imperfect image. Apply the following rules:
+
+- If you can read a field despite imperfections, verify it normally and report any mismatch.
+- If a specific field is affected by image quality and you cannot read it with confidence, set that field's status to "flag" and write a specific explanation naming the quality issue and which part of the label it affected — e.g. "Glare obscured the lower half of the label; the net contents field could not be read with confidence." Do not use image quality as an excuse for a mismatch you can clearly see.
+- If the image is so severely degraded that no fields can be read at all (completely dark, totally blurred, pure glare, image corrupted), set image_quality to "unreadable", set overall_status to "error", set image_quality_notes to a specific description of why the image is unreadable, and return an empty fields array. Do not attempt field-by-field results for a completely unreadable image.
+
+Set image_quality to:
+- "good" — image is clear and all fields readable
+- "poor" — image has quality issues but some or all fields could still be read
+- "unreadable" — image is too degraded for any field extraction
 
 Respond with ONLY valid JSON — no markdown, no code fences, no explanation. Use this exact schema:
 
@@ -48,11 +59,11 @@ Respond with ONLY valid JSON — no markdown, no code fences, no explanation. Us
       "explanation": "<reason for non-pass result; empty string for pass>"
     }
   ],
-  "overall_status": "pass" | "flag" | "fail",
-  "image_quality": "good" | "poor",
-  "image_quality_notes": "<notes if poor; empty string otherwise>"
+  "overall_status": "pass" | "flag" | "fail" | "error",
+  "image_quality": "good" | "poor" | "unreadable",
+  "image_quality_notes": "<specific description of quality issues observed; empty string if good>"
 }
 
-Include one entry per checked field. Always include government_warning as the final entry.
-overall_status rules: "fail" if ANY field is "fail"; "flag" if no fails but at least one "flag"; "pass" only if ALL fields pass.`;
+Include one entry per checked field. Always include government_warning as the final entry unless image_quality is "unreadable".
+overall_status rules: "fail" if ANY field is "fail"; "flag" if no fails but at least one "flag"; "pass" only if ALL fields pass; "error" only if image_quality is "unreadable".`;
 }
