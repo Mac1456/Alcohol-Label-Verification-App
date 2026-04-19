@@ -1,5 +1,5 @@
 # Development Log: AI-Powered Alcohol Label Verification App
-**Last Updated:** April 17, 2026
+**Last Updated:** April 19, 2026
 **Status:** Phase 3 complete — 7-case structured test suite run, two prompt bugs fixed, all test cases passing
 
 ---
@@ -337,7 +337,7 @@ Batch labels are processed via `Promise.all()` — parallel Claude API calls fir
 | `react-dropzone` | File upload UI component |
 | `@anthropic-ai/sdk` 0.30.x | Anthropic API client for Node.js |
 | Vercel | Deployment (pending) |
-| AI image generation (TBD) | Generating test label images for Phase 5 testing |
+| ChatGPT (DALL-E), Gemini (NanoBanana) | AI image generation for test labels — multiple models tested to produce varied label layouts and image qualities |
 
 ---
 
@@ -487,8 +487,8 @@ Parallel processing via `Promise.all()` is validated at prototype scale. Both th
 
 | Question | Status |
 |---|---|
-| Rate limit handling for large batches (300 labels) | ⬜ To be assessed — 20-label test showed no 429s but latency degradation suggests chunking needed above ~20 simultaneous calls |
-| Whether `Promise.all()` is sufficient for 300 labels or needs chunking | 🟡 Confirmed sufficient for 10–20 labels; chunking likely needed at 300 |
+| Rate limit handling for large batches (300 labels) | ✅ Conclusion reached — no 429s observed at 20 labels, but latency degradation confirms chunking required above ~20 simultaneous calls. Out of scope for prototype. |
+| Whether `Promise.all()` is sufficient for 300 labels or needs chunking | ✅ Conclusion reached — `Promise.all()` validated for 10–20 labels; chunking needed at 300-label scale. Out of scope for prototype. |
 | Whether Haiku maintains accuracy on harder edge cases (angled photos, imperfect labels) | ⬜ To be tested in Phase 5 |
 
 ---
