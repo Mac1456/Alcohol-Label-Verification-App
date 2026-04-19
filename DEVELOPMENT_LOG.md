@@ -1,6 +1,6 @@
 # Development Log: AI-Powered Alcohol Label Verification App
 **Last Updated:** April 19, 2026
-**Status:** Phase 3 complete — stretch goal (imperfect image handling) tested and documented
+**Status:** Deployed — [alcohol-label-verification-app-seven.vercel.app](https://alcohol-label-verification-app-seven.vercel.app/)
 
 ---
 
@@ -336,7 +336,7 @@ Batch labels are processed via `Promise.all()` — parallel Claude API calls fir
 | Tailwind CSS 3 | Styling |
 | `react-dropzone` | File upload UI component |
 | `@anthropic-ai/sdk` 0.30.x | Anthropic API client for Node.js |
-| Vercel | Deployment (pending) |
+| Vercel | Deployment — [alcohol-label-verification-app-seven.vercel.app](https://alcohol-label-verification-app-seven.vercel.app/) |
 | ChatGPT (DALL-E), Gemini (NanoBanana) | AI image generation for test labels — multiple models tested to produce varied label layouts and image qualities |
 
 ---
@@ -606,6 +606,7 @@ For a production version of this tool, DSPy would be worth exploring as the volu
 | April 18, 2026 | 30-run benchmark completed using reusable script (scripts/benchmark.js). 95% CI: 3.04s–3.30s. 30/30 runs under 5s. 30/30 pass accuracy. Full distribution statistics and per-run data documented. |
 | April 19, 2026 | Government warning hallucination bug identified and fixed. Claude was hallucinating word-level differences in the warning body text ("Surgeon General" vs "the Surgeon General") causing false fails on correct labels. Fix: rule 7 in prompt.ts simplified to extraction-only; comparison moved to code in claude.ts using normalised exact match against hardcoded TTB constant. overall_status now recomputed in code. Validated with 20-run parallel benchmark against Riverstone Reserve label — 20/20 pass including government_warning on every run. 95% CI: 4.04s–4.54s at concurrency 5. |
 | April 19, 2026 | Batch parallelization test completed. 10-label batch: 6.4s wall time, 0 errors. 20-label batch: 9.7s wall time, 0 errors. Promise.all() confirmed working at both scales with no timeouts or rate limit failures. Per-label latency increases under load (avg 4.5s at 10 labels, 6.6s at 20 labels vs 3.2s single-label baseline). Chunking recommended for 300-label scale. Test assets added to test-labels/batch/ and rerunnable script added to scripts/tests/batch-parallelization.js. |
+| April 19, 2026 | Deployed to Vercel — https://alcohol-label-verification-app-seven.vercel.app/. Pre-deployment fixes: vercel.json added with 30s timeout on verify route and 60s on verify-batch; batch route body size limit raised to 50mb. |
 | April 19, 2026 | Stretch goal implemented and consistency-tested: imperfect image handling. Prompt expanded with best-effort read instructions, per-field quality flagging, and "unreadable" state. ImageQuality type extended. claude.ts updated to short-circuit on unreadable images and preserve quality explanations on government warning. UI updated to surface quality notes for poor and unreadable images. 10-run consistency test on three imperfect images (angled, glare, low-light): all five primary fields read at 100% accuracy across all images and all runs. Government warning is the hard limitation — 0% pass on angled and glare images, 30% on low-light — due to small-print text sensitivity at that image position. No crashes on any run. |
 
 ---

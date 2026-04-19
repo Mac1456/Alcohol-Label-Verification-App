@@ -2,6 +2,8 @@
 
 An AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax and Trade Bureau) compliance agents. Upload a label image and enter the expected application values — the app uses Claude's vision capabilities to verify each field and return a per-field pass/flag/fail result.
 
+**Live:** [alcohol-label-verification-app-seven.vercel.app](https://alcohol-label-verification-app-seven.vercel.app/)
+
 ---
 
 ## Features
@@ -22,7 +24,7 @@ An AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax a
 | Styling | Tailwind CSS |
 | File uploads | react-dropzone |
 | AI | Claude (`claude-haiku-4-5-20251001`) via `@anthropic-ai/sdk` |
-| Deployment | Vercel |
+| Deployment | Vercel — [live](https://alcohol-label-verification-app-seven.vercel.app/) |
 
 ---
 
