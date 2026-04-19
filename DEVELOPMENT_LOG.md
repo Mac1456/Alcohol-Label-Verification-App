@@ -493,6 +493,16 @@ Parallel processing via `Promise.all()` is validated at prototype scale. Both th
 
 ---
 
+## Future Considerations
+
+### Prompt Optimization via DSPy
+
+DSPy is a framework developed at Stanford that treats prompt engineering as a programming problem rather than a manual process. Instead of hand-writing and tuning prompt instructions, you define the inputs and outputs of your AI system and DSPy automatically optimizes the prompts against labeled example data.
+
+For a production version of this tool, DSPy would be worth exploring as the volume of real verified labels grows. With a sufficiently large dataset of labeled verification examples, DSPy could systematically optimize accuracy across edge cases, reduce reliance on manual prompt maintenance, and produce more consistent results across diverse label formats and image qualities.
+
+---
+
 ## Change Log
 
 | Date | Change |
