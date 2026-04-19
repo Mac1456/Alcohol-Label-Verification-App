@@ -433,14 +433,62 @@ node scripts/benchmark.js --image "test-labels/OLD TOM DISTILLERY test label_2.p
 
 The script outputs per-run timings, full distribution statistics, 95% CI, percentiles (p50/p75/p90/p95), and per-field accuracy for every run.
 
+### Batch Parallelization Test
+
+Tested the `/api/verify-batch` endpoint under real parallel load to confirm `Promise.all()` works correctly at moderate scale. The original project brief defines no batch completion time benchmark — the 5-second performance requirement applies to single-label verification only. The goal of this test was not to hit a specific time target but to validate that parallel processing works correctly at moderate volume and to document any observed limitations. Test assets are in `test-labels/batch/` (10 and 20 image sets with corresponding CSVs). Rerunnable via `scripts/tests/batch-parallelization.js`.
+
+#### Setup
+
+10 and 20 PNG images were prepared by cycling through the 3 Old Tom Distillery test labels (`label_1.png`, `label_2.png`, `label_3.png`). All CSV rows used `label_1` field values. Labels 2 and 3 have genuinely different content so their rows produce legitimate verification fails — these are expected accuracy outcomes, not processing errors.
+
+#### 10-label batch
+
+| Metric | Value |
+|---|---|
+| Total wall time | 6.4s |
+| Per-label min | 3.2s |
+| Per-label max | 5.9s |
+| Per-label avg | 4.5s |
+| Spread (max − min) | 2.7s |
+| Processing errors | 0/10 |
+| Timeouts | 0 |
+
+All 10 labels returned a result. No errors or timeouts. Wall time of 6.4s confirms true parallelism — sequential processing would take ~45s at 4.5s per label.
+
+#### 20-label batch
+
+| Metric | Value |
+|---|---|
+| Total wall time | 9.7s |
+| Per-label min | 3.6s |
+| Per-label max | 9.4s |
+| Per-label avg | 6.6s |
+| Spread (max − min) | 5.8s |
+| Processing errors | 0/20 |
+| Timeouts | 0 |
+
+All 20 labels returned a result. No errors or timeouts. Wall time of 9.7s for 20 simultaneous calls confirms parallelism holds at this scale.
+
+#### Observations
+
+- **Parallelism confirmed at both scales.** `Promise.all()` fires all Claude calls simultaneously; wall time tracks the slowest single call, not the sum.
+- **Per-label latency increases under load.** Under 10 simultaneous calls, per-label avg rose from ~3.2s (single-label baseline) to ~4.5s. Under 20 calls it rose further to ~6.6s avg, with the slowest label hitting 9.4s. This is consistent with API-side queuing or throttling under concurrent request pressure — not a code issue.
+- **Spread widens with scale.** The 10-label spread was 2.7s; the 20-label spread was 5.8s. Some calls get scheduled later under heavier load, creating a longer tail.
+- **No rate limit errors observed** at either scale. All 20 concurrent calls completed without a 429 or connection failure. The Anthropic API absorbed the load without explicit error — though the latency increase at 20 labels suggests the API is applying some back-pressure.
+- **The 5-second per-label requirement is not met under full parallel load.** At 20 labels, 9 of 20 calls exceeded 5s. This is acceptable for a batch workflow where the agent is waiting for the full batch, not a per-label result, but it should be noted for any future SLA definition on batch mode.
+
+#### Outcome
+
+Parallel processing via `Promise.all()` is validated at prototype scale. Both the 10-label and 20-label batches completed with all labels returning results, no timeouts, and no errors. The batch tab of the application functions as intended for moderate-volume use. Per-label latency degradation under concurrent load is noted but is not a failure — the 5-second requirement does not apply to batch mode and agents waiting for a full batch result are not affected by individual call spread. At production scale (200–300 labels), chunking would be required to avoid rate limiting — this is a known limitation and out of scope for the prototype.
+
 ---
 
 ## Open Questions
 
 | Question | Status |
 |---|---|
-| Rate limit handling for large batches (300 labels) | ⬜ To be assessed during Phase 5 testing |
-| Whether `Promise.all()` is sufficient for 300 labels or needs chunking | ⬜ To be tested |
+| Rate limit handling for large batches (300 labels) | ⬜ To be assessed — 20-label test showed no 429s but latency degradation suggests chunking needed above ~20 simultaneous calls |
+| Whether `Promise.all()` is sufficient for 300 labels or needs chunking | 🟡 Confirmed sufficient for 10–20 labels; chunking likely needed at 300 |
 | Whether Haiku maintains accuracy on harder edge cases (angled photos, imperfect labels) | ⬜ To be tested in Phase 5 |
 
 ---
@@ -456,6 +504,7 @@ The script outputs per-run timings, full distribution statistics, 95% CI, percen
 | April 18, 2026 | Phase 3 complete. 7 structured test cases run. Two prompt bugs found and fixed: (1) government warning capitalisation check restructured into two independent hard-fail components — title-case header now correctly fails; (2) brand name casing mismatch rule restructured into three explicit tiers — same-content capitalisation differences now correctly return FLAG. All 7 test cases passing. |
 | April 18, 2026 | 30-run benchmark completed using reusable script (scripts/benchmark.js). 95% CI: 3.04s–3.30s. 30/30 runs under 5s. 30/30 pass accuracy. Full distribution statistics and per-run data documented. |
 | April 19, 2026 | Government warning hallucination bug identified and fixed. Claude was hallucinating word-level differences in the warning body text ("Surgeon General" vs "the Surgeon General") causing false fails on correct labels. Fix: rule 7 in prompt.ts simplified to extraction-only; comparison moved to code in claude.ts using normalised exact match against hardcoded TTB constant. overall_status now recomputed in code. Validated with 20-run parallel benchmark against Riverstone Reserve label — 20/20 pass including government_warning on every run. 95% CI: 4.04s–4.54s at concurrency 5. |
+| April 19, 2026 | Batch parallelization test completed. 10-label batch: 6.4s wall time, 0 errors. 20-label batch: 9.7s wall time, 0 errors. Promise.all() confirmed working at both scales with no timeouts or rate limit failures. Per-label latency increases under load (avg 4.5s at 10 labels, 6.6s at 20 labels vs 3.2s single-label baseline). Chunking recommended for 300-label scale. Test assets added to test-labels/batch/ and rerunnable script added to scripts/tests/batch-parallelization.js. |
 
 ---
 
