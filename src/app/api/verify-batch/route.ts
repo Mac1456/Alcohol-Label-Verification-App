@@ -3,6 +3,10 @@ import { verifyLabel } from "@/lib/claude";
 import { parseCSV } from "@/lib/parse-csv";
 import type { BatchLabelResult, BatchVerificationResponse } from "@/lib/types";
 
+export const config = {
+  api: { bodyParser: { sizeLimit: "50mb" } },
+};
+
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 type AllowedType = (typeof ALLOWED_TYPES)[number];
 
